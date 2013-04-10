@@ -40,6 +40,8 @@ class Post < ActiveRecord::Base
 
   scope :by_newest, order('created_at desc, id desc')
   scope :with_user, includes(:user)
+  scope :public_posts, lambda { joins(:topic).where('topics.archetype <> ?', [Archetype.private_message]) }
+  scope :private_posts, lambda { joins(:topic).where('topics.archetype = ?', Archetype.private_message) }
 
   def self.hidden_reasons
     @hidden_reasons ||= Enum.new(:flag_threshold_reached, :flag_threshold_reached_again)
@@ -63,7 +65,7 @@ class Post < ActiveRecord::Base
   # Stop us from posting the same thing too quickly
   def unique_post_validator
     return if SiteSetting.unique_posts_mins == 0
-    return if user.admin? || user.moderator?
+    return if acting_user.admin? || acting_user.moderator?
 
     # If the post is empty, default to the validates_presence_of
     return if raw.blank?
@@ -123,8 +125,19 @@ class Post < ActiveRecord::Base
     total
   end
 
+  # Sometimes the post is being edited by someone else, for example, a mod.
+  # If that's the case, they should not be bound by the original poster's
+  # restrictions, for example on not posting images.
+  def acting_user
+    @acting_user || user
+  end
+
+  def acting_user=(pu)
+    @acting_user = pu
+  end
+
   def max_mention_validator
-    if user.present? && user.has_trust_level?(:basic)
+    if acting_user.present? && acting_user.has_trust_level?(:basic)
       errors.add(:base, I18n.t(:too_many_mentions, count: SiteSetting.max_mentions_per_post)) if raw_mentions.size > SiteSetting.max_mentions_per_post
     else
       errors.add(:base, I18n.t(:too_many_mentions_visitor, count: SiteSetting.visitor_max_mentions_per_post)) if raw_mentions.size > SiteSetting.visitor_max_mentions_per_post
@@ -132,12 +145,12 @@ class Post < ActiveRecord::Base
   end
 
   def max_images_validator
-    return if user.present? && user.has_trust_level?(:basic)
+    return if acting_user.present? && acting_user.has_trust_level?(:basic)
     errors.add(:base, I18n.t(:too_many_images, count: SiteSetting.visitor_max_images)) if image_count > SiteSetting.visitor_max_images
   end
 
   def max_links_validator
-    return if user.present? && user.has_trust_level?(:basic)
+    return if acting_user.present? && acting_user.has_trust_level?(:basic)
     errors.add(:base, I18n.t(:too_many_links, count: SiteSetting.visitor_max_links)) if link_count > SiteSetting.visitor_max_links
   end
 
@@ -230,15 +243,11 @@ class Post < ActiveRecord::Base
     # If we have any of the oneboxes in the cache, throw them in right away, don't
     # wait for the post processor.
     dirty = false
-    doc = Oneboxer.each_onebox_link(cooked) do |url, elem|
-      cached = Oneboxer.render_from_cache(url)
-      if cached.present?
-        elem.swap(cached)
-        dirty = true
-      end
+    result = Oneboxer.apply(cooked) do |url, elem|
+      Oneboxer.render_from_cache(url)
     end
 
-    cooked = doc.to_html if dirty
+    cooked = result.to_html if result.changed?
     cooked
   end
 
@@ -391,10 +400,10 @@ class Post < ActiveRecord::Base
   end
 
   def self.public_posts_count_per_day(sinceDaysAgo=30)
-    joins(:topic).where('topics.archetype <> ?', [Archetype.private_message]).where('posts.created_at > ?', sinceDaysAgo.days.ago).group('date(posts.created_at)').order('date(posts.created_at)').count
+    public_posts.where('posts.created_at > ?', sinceDaysAgo.days.ago).group('date(posts.created_at)').order('date(posts.created_at)').count
   end
 
   def self.private_messages_count_per_day(sinceDaysAgo=30)
-    joins(:topic).where('topics.archetype = ?', Archetype.private_message).where('posts.created_at > ?', sinceDaysAgo.days.ago).group('date(posts.created_at)').order('date(posts.created_at)').count
+    private_posts.where('posts.created_at > ?', sinceDaysAgo.days.ago).group('date(posts.created_at)').order('date(posts.created_at)').count
   end
 end

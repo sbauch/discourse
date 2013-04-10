@@ -41,7 +41,7 @@
   <div class="control-group">
     <label class="control-label">{{i18n user.password.title}}</label>
     <div class="controls">
-      <a href="#" {{action changePassword target="controller"}} class='btn'>{{i18n user.change_password}}</a> {{controller.passwordProgress}}
+      <a href="#" {{action changePassword target="controller"}} class='btn'>{{i18n user.change_password.action}}</a> {{controller.passwordProgress}}
     </div>
   </div>
 
@@ -115,7 +115,7 @@
       <label>{{i18n user.new_topic_duration.label}}</label>
       {{view Discourse.ComboboxView valueAttribute="value" contentBinding="controller.considerNewTopicOptions" valueBinding="content.new_topic_duration_minutes"}}
     </div>
-    
+
     <div class="controls">
       <label>{{view Ember.Checkbox checkedBinding="content.external_links_in_new_tab"}}
       {{i18n user.external_links_in_new_tab}}</label>

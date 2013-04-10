@@ -126,12 +126,11 @@ Discourse.User = Discourse.Model.extend({
     Save's this user's properties over AJAX via a PUT request.
 
     @method save
-    @param {Function} finished Function called on completion of AJAX call
-    @returns The result of finished(true) on a success, the result of finished(false) on an error
+    @returns {Promise} the result of the operation
   **/
-  save: function(finished) {
-    var _this = this;
-    Discourse.ajax(Discourse.getURL("/users/") + this.get('username').toLowerCase(), {
+  save: function() {
+    var user = this;
+    return Discourse.ajax(Discourse.getURL("/users/") + this.get('username').toLowerCase(), {
       data: this.getProperties('auto_track_topics_after_msecs',
                                'bio_raw',
                                'website',
@@ -143,13 +142,10 @@ Discourse.User = Discourse.Model.extend({
                                'new_topic_duration_minutes',
                                'external_links_in_new_tab',
                                'enable_quoting'),
-      type: 'PUT',
-      success: function() {
-        Discourse.set('currentUser.enable_quoting', _this.get('enable_quoting'));
-        Discourse.set('currentUser.external_links_in_new_tab', _this.get('external_links_in_new_tab'));
-        return finished(true);
-      },
-      error: function() { return finished(false); }
+      type: 'PUT'
+    }).then(function() {
+      Discourse.set('currentUser.enable_quoting', user.get('enable_quoting'));
+      Discourse.set('currentUser.external_links_in_new_tab', user.get('external_links_in_new_tab'));
     });
   },
 
@@ -157,28 +153,15 @@ Discourse.User = Discourse.Model.extend({
     Changes the password and calls the callback function on AJAX.complete.
 
     @method changePassword
-    @param {Function} callback Function called on completion of AJAX call
-    @returns The result of the callback() function on complete
+    @returns {Promise} the result of the change password operation
   **/
-  changePassword: function(callback) {
-    var good;
-    good = false;
-  Discourse.ajax({
-      url: Discourse.getURL("/session/forgot_password"),
+  changePassword: function() {
+    return Discourse.ajax(Discourse.getURL("/session/forgot_password"), {
       dataType: 'json',
       data: {
         username: this.get('username')
       },
-      type: 'POST',
-      success: function() { good = true; },
-      complete: function() {
-        var message;
-        message = "error";
-        if (good) {
-          message = "email sent";
-        }
-        return callback(message);
-      }
+      type: 'POST'
     });
   },
 
@@ -206,29 +189,24 @@ Discourse.User = Discourse.Model.extend({
     @returns A stream of the user's actions containing the action of id
   **/
   loadUserAction: function(id) {
-    var stream,
-      _this = this;
-    stream = this.get('stream');
-    Discourse.ajax({
+    var user = this;
+    var stream = this.get('stream');
+    return Discourse.ajax({
       url: Discourse.getURL("/user_actions/") + id + ".json",
       dataType: 'json',
-      cache: 'false',
-      success: function(result) {
-        if (result) {
-          var action;
+      cache: 'false'
+    }).then(function(result) {
+      if (result) {
 
-          if ((_this.get('streamFilter') || result.action_type) !== result.action_type) {
-            return;
-          }
+        if ((user.get('streamFilter') || result.action_type) !== result.action_type) return;
 
-          action = Em.A();
-          action.pushObject(Discourse.UserAction.create(result));
-          action = Discourse.UserAction.collapseStream(action);
+        var action = Em.A();
+        action.pushObject(Discourse.UserAction.create(result));
+        action = Discourse.UserAction.collapseStream(action);
 
-          _this.set('totalItems', _this.get('totalItems') + 1);
+        user.set('totalItems', user.get('totalItems') + 1);
 
-          return stream.insertAt(0, action[0]);
-        }
+        return stream.insertAt(0, action[0]);
       }
     });
   },
@@ -237,39 +215,28 @@ Discourse.User = Discourse.Model.extend({
     Loads more user actions, and then calls a callback if defined.
 
     @method loadMoreUserActions
-    @param {String} callback Called after completion, on success of AJAX call, if it is defined
-    @returns the result of the callback
+    @returns {Promise} the content of the user actions
   **/
-  loadMoreUserActions: function(callback) {
-    var stream, url,
-      _this = this;
-    stream = this.get('stream');
+  loadMoreUserActions: function() {
+    var user = this;
+    var stream = user.get('stream');
     if (!stream) return;
 
-    url = Discourse.getURL("/user_actions?offset=") + this.get('totalItems') + "&user_id=" + (this.get("id"));
+    var url = Discourse.getURL("/user_actions?offset=") + this.get('totalItems') + "&user_id=" + (this.get("id"));
     if (this.get('streamFilter')) {
       url += "&filter=" + (this.get('streamFilter'));
     }
 
-    return Discourse.ajax({
-      url: url,
-      dataType: 'json',
-      cache: 'false',
-      success: function(result) {
-        var copy;
-        if (result && result.user_actions && result.user_actions.each) {
-          copy = Em.A();
-          result.user_actions.each(function(i) {
-            return copy.pushObject(Discourse.UserAction.create(i));
-          });
-          copy = Discourse.UserAction.collapseStream(copy);
-          stream.pushObjects(copy);
-          _this.set('stream', stream);
-          _this.set('totalItems', _this.get('totalItems') + result.user_actions.length);
-        }
-        if (callback) {
-          return callback();
-        }
+    return Discourse.ajax(url, { cache: 'false' }).then( function(result) {
+      if (result && result.user_actions && result.user_actions.each) {
+        var copy = Em.A();
+        result.user_actions.each(function(i) {
+          return copy.pushObject(Discourse.UserAction.create(i));
+        });
+        copy = Discourse.UserAction.collapseStream(copy);
+        stream.pushObjects(copy);
+        user.set('stream', stream);
+        user.set('totalItems', user.get('totalItems') + result.user_actions.length);
       }
     });
   },
@@ -345,12 +312,12 @@ Discourse.User = Discourse.Model.extend({
   }).property('stats.@each'),
 
   /**
-  Number of items this user has sent.
+    Number of items this user has sent.
 
     @property sentItemsCount
     @type {Integer}
   **/
-  sentItemsCount: (function() {
+  sentItemsCount: function() {
     var r;
     r = 0;
     this.get('stats').each(function(s) {
@@ -360,7 +327,42 @@ Discourse.User = Discourse.Model.extend({
       }
     });
     return r;
-  }).property('stats.@each')
+  }.property('stats.@each'),
+
+  /**
+    Load extra details for the user
+
+    @method loadDetails
+  **/
+  loadDetails: function() {
+
+    // Check the preload store first
+    var user = this;
+    var username = this.get('username');
+    PreloadStore.getAndRemove("user_" + username, function() {
+      return Discourse.ajax({ url: Discourse.getURL("/users/") + username + '.json' });
+    }).then(function (json) {
+      // Create a user from the resulting JSON
+      json.user.stats = Discourse.User.groupStats(json.user.stats.map(function(s) {
+        var stat = Em.Object.create(s);
+        stat.set('isPM', stat.get('action_type') === Discourse.UserAction.NEW_PRIVATE_MESSAGE ||
+                         stat.get('action_type') === Discourse.UserAction.GOT_PRIVATE_MESSAGE);
+        return stat;
+      }));
+
+      var count = 0;
+      if (json.user.stream) {
+        count = json.user.stream.length;
+        json.user.stream = Discourse.UserAction.collapseStream(json.user.stream.map(function(ua) {
+          return Discourse.UserAction.create(ua);
+        }));
+      }
+
+      user.setProperties(json.user);
+      user.set('totalItems', count);
+    });
+  }
+
 });
 
 Discourse.User.reopenClass({
@@ -424,42 +426,6 @@ Discourse.User.reopenClass({
       return g[s.action_type];
     }).exclude(function(s) {
       return !s;
-    });
-  },
-
-  /**
-    Finds a user based on a username
-
-    @method find
-    @param {String} username The username
-    @returns a promise that will resolve to the user
-  **/
-  find: function(username) {
-
-    // Check the preload store first
-    return PreloadStore.getAndRemove("user_" + username, function() {
-      return Discourse.ajax({ url: Discourse.getURL("/users/") + username + '.json' });
-    }).then(function (json) {
-
-      // Create a user from the resulting JSON
-      json.user.stats = Discourse.User.groupStats(json.user.stats.map(function(s) {
-        var stat = Em.Object.create(s);
-        stat.set('isPM', stat.get('action_type') === Discourse.UserAction.NEW_PRIVATE_MESSAGE ||
-                         stat.get('action_type') === Discourse.UserAction.GOT_PRIVATE_MESSAGE);
-        return stat;
-      }));
-
-      var count = 0;
-      if (json.user.stream) {
-        count = json.user.stream.length;
-        json.user.stream = Discourse.UserAction.collapseStream(json.user.stream.map(function(ua) {
-          return Discourse.UserAction.create(ua);
-        }));
-      }
-
-      var user = Discourse.User.create(json.user);
-      user.set('totalItems', count);
-      return user;
     });
   },
 

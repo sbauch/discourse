@@ -75,8 +75,8 @@ da:
 
   category:
     topic_prefix: "Category definition for %{category}"
-    replace_paragraph: "[Replace this first paragraph with a short description of your new category. Try to keep it below 200 characters.]"
-    post_template: "%{replace_paragraph}\n\nUse this space below for a longer description, as well as to establish any rules or discussion!"
+    replace_paragraph: "[Replace this first paragraph with a short description of your new category. This guidance will appear in the category selection area, so try to keep it below 200 characters.]"
+    post_template: "%{replace_paragraph}\n\nUse this space for a longer description, as well as to establish any category guidelines or rules.\n\nSome things to consider in any discussion replies below:\n\n- What is this category for? Why should people select this category for their topic?\n\n- How is this different than the other categories we already have?\n\n- Do we need this category?\n\n- Should we merge this with another category, or split it into more categories?\n"
 
   trust_levels:
     new:
@@ -326,7 +326,7 @@ da:
     best_of_score_threshold: "The minimum score of a post to be included in the 'best of'"
     best_of_posts_required: "Minimum posts in a topic before 'best of' mode is enabled"
     best_of_likes_required: "Minimum likes in a topic before the 'best of' mode will be enabled"
-    enable_private_messages: "Allow trust level 1 users to create private messages and conversations"
+    enable_private_messages: "Allow basic (1) trust level users to create private messages and reply to private conversations"
 
     enable_long_polling: "Message bus used for notification can use long polling"
     long_polling_interval: "Interval before a new long poll is issued in milliseconds "
@@ -403,8 +403,8 @@ da:
     enable_s3_uploads: "Place uploads on Amazon S3"
     s3_upload_bucket: "The Amazon S3 bucket name that files will be uploaded into"
 
-    default_invitee_trust_level: "Default trust level (0-5) for invited users"
-    default_trust_level: "Default trust level (0-5) for users"
+    default_invitee_trust_level: "Default trust level (0-4) for invited users"
+    default_trust_level: "Default trust level (0-4) for users"
 
     basic_requires_topics_entered: "How many a topics a new user must enter before promotion to basic (1) trust level"
     basic_requires_read_posts: "How many posts a new user must read before promotion to basic (1) trust level"
@@ -417,7 +417,7 @@ da:
     max_word_length: "The maximum allowed word length, in characters, in a topic title"
     title_min_entropy: "The minimum allowed entropy (unique characters) required for a topic title"
     body_min_entropy: "The minimum allowed entropy (unique characters) required for a post body"
-    title_fancy_entities: "Convert fancy HTML entities in topic titles"
+    title_fancy_entities: "Convert common ASCII characters to fancy HTML entities in topic titles, ala SmartyPants http://daringfireball.net/projects/smartypants/"
 
     min_title_similar_length: "The minimum length of a title before it will be checked for similar topics"
     min_body_similar_length: "The minimum length of a post's body before it will be checked for similar topics"

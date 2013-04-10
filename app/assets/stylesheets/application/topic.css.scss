@@ -28,7 +28,7 @@
   .star {
     height: 40px;
     font-size: 20px !important;
-    line-height: 40px !important;
+    line-height: 36px !important;
     vertical-align: top;
   }
   .topic-statuses {
@@ -48,7 +48,7 @@
       vertical-align: top;
     }
   }
-  .badge-category {
+  h1 > .badge-category {
     margin-top: 5px;
     vertical-align: top;
   }
@@ -70,6 +70,16 @@
   #edit-title,
   .chzn-container {
     margin: 6px 0;
+  }
+  .category-combobox {
+    width: 330px;
+    .chzn-drop {
+      left: -9000px;
+      width: 328px;
+    }
+    .chzn-search input {
+      width: 278px;
+    }
   }
   button {
     margin: 8px 0;

@@ -63,11 +63,16 @@ cs:
       activity_stream: "Aktivita"
       preferences: "Nastavení"
       bio: "O mně"
-      change_password: "změnit heslo"
       invited_by: "Poznánka od"
       trust_level: "Věrohodnost"
       external_links_in_new_tab: "Otevírat všechny externí odkazy do nové záložky"
       enable_quoting: "Povolit odpověď s citací z označeného textu"
+
+      change_password:
+        action: "změnit"
+        success: "(email odeslán)"
+        in_progress: "(odesílám)"
+        error: "(chyba)"
 
       change_username:
         action: "změnit uživatelské jméno"
@@ -98,7 +103,7 @@ cs:
         ok: "Vaše jméno vypadá dobře"
       username:
         title: "Uživatelské jméno"
-        instructions: "Musí být unikátní a bez mezer. Ostatní vás mohou zmínit jako @{{username}}."
+        instructions: "Musí být unikátní a bez mezer. Ostatní vás mohou zmínit jako @username."
         short_instructions: "Ostatní vás mohou zmínit jako @{{username}}."
         available: "Toto uživatelské jméno je volné."
         global_match: "Emailová adresa odpovídá registrovaného uživatelskému jménu."
@@ -729,6 +734,7 @@ cs:
       no_description: "K této kategorii zatím není žádný popis."
       change_in_category_topic: "navštivte téma kategorie pro editaci jejího popisu"
       hotness: "Popularita"
+      already_used: 'Tato barva je již použita jinou kategorií'
 
     flagging:
       title: 'Proč chcete nahlásit tento příspěvek?'
@@ -819,6 +825,7 @@ cs:
 
     admin:
       title: 'Discourse Administrace'
+      moderator: 'Moderátor'
 
       dashboard:
         title: "Administrátorský rozcestník"
@@ -939,6 +946,11 @@ cs:
         approve: 'Schválit'
         approved_by: "schválil"
         time_read: "Čas čtení"
+
+      site_content:
+        none: "Zvolte typ obsahu a můžete začít editovat."
+        title: 'Obsah webu'
+        edit: "Editovat obsah webu"
 
       site_settings:
         show_overriden: 'Zobrazit pouze změněná nastavení'

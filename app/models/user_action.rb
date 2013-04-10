@@ -50,6 +50,10 @@ class UserAction < ActiveRecord::Base
       results = results.where("action_type <> ?", BOOKMARK)
     end
 
+    unless guardian.can_see_deleted_posts?
+      results = results.where('topics.deleted_at IS NULL')
+    end
+
     results = results.to_a
 
     results.sort! { |a,b| ORDER[a.action_type] <=> ORDER[b.action_type] }
@@ -97,7 +101,7 @@ JOIN users pu on pu.id = COALESCE(p.user_id, t.user_id)
 ")
 
     unless guardian.can_see_deleted_posts?
-      builder.where("p.deleted_at is null and p2.deleted_at is null")
+      builder.where("p.deleted_at is null and p2.deleted_at is null and t.deleted_at is null")
     end
 
     unless guardian.user && guardian.user.id == user_id
@@ -201,6 +205,15 @@ JOIN users pu on pu.id = COALESCE(p.user_id, t.user_id)
           action.created_at = hash[:created_at]
         end
         action.save!
+
+        action_type = hash[:action_type]
+        user_id = hash[:user_id]
+        if action_type == LIKE
+          User.update_all('likes_given = likes_given + 1', id: user_id)
+        elsif action_type == WAS_LIKED
+          User.update_all('likes_received = likes_received + 1', id: user_id)
+        end
+
       rescue ActiveRecord::RecordNotUnique
         # can happen, don't care already logged
         raise ActiveRecord::Rollback
@@ -213,6 +226,14 @@ JOIN users pu on pu.id = COALESCE(p.user_id, t.user_id)
     if action = UserAction.where(hash).first
       action.destroy
       MessageBus.publish("/user/#{hash[:user_id]}", {user_action_id: action.id, remove: true})
+    end
+
+    action_type = hash[:action_type]
+    user_id = hash[:user_id]
+    if action_type == LIKE
+      User.update_all('likes_given = likes_given - 1', id: user_id)
+    elsif action_type == WAS_LIKED
+      User.update_all('likes_received = likes_received - 1', id: user_id)
     end
   end
 

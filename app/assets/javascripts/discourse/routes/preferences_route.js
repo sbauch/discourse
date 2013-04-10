@@ -21,5 +21,3 @@ Discourse.PreferencesRoute = Discourse.RestrictedUserRoute.extend({
   }
 
 });
-
-

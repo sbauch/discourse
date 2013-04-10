@@ -27,7 +27,7 @@ Discourse.ComposerView = Discourse.View.extend({
   }.property('content.composeState'),
 
   draftStatus: function() {
-    this.$('.saving-draft').text(this.get('content.draftStatus') || "");
+    this.$('.draft-status').text(this.get('content.draftStatus') || "");
   }.observes('content.draftStatus'),
 
   // Disable fields when we're loading
@@ -40,8 +40,7 @@ Discourse.ComposerView = Discourse.View.extend({
   }.observes('loading'),
 
   postMade: function() {
-    if (this.present('controller.createdPost')) return 'created-post';
-    return null;
+    return this.present('controller.createdPost') ? 'created-post' : null;
   }.property('content.createdPost'),
 
   observeReplyChanges: function() {
@@ -87,7 +86,7 @@ Discourse.ComposerView = Discourse.View.extend({
 
   focusIn: function() {
     var controller = this.get('controller');
-    if(controller) controller.resetDraftStatus();
+    if (controller) controller.updateDraftStatus();
   },
 
   resize: function() {
@@ -123,9 +122,9 @@ Discourse.ComposerView = Discourse.View.extend({
   },
 
   didInsertElement: function() {
-    var replyControl = $('#reply-control');
-    replyControl.DivResizer({ resize: this.resize, onDrag: this.movePanels });
-    Discourse.TransitionHelper.after(replyControl, this.resize);
+    var $replyControl = $('#reply-control');
+    $replyControl.DivResizer({ resize: this.resize, onDrag: this.movePanels });
+    Discourse.TransitionHelper.after($replyControl, this.resize);
   },
 
   click: function() {
@@ -184,10 +183,9 @@ Discourse.ComposerView = Discourse.View.extend({
     $wmdInput.data('init', true);
     $wmdInput.autocomplete({
       template: template,
-      dataSource: function(term, callback) {
+      dataSource: function(term) {
         return Discourse.UserSearch.search({
           term: term,
-          callback: callback,
           topicId: _this.get('controller.controllers.topic.content.id')
         });
       },
@@ -199,13 +197,14 @@ Discourse.ComposerView = Discourse.View.extend({
     $('#private-message-users').val(this.get('content.targetUsernames')).autocomplete({
       template: template,
 
-      dataSource: function(term, callback) {
+      dataSource: function(term) {
         return Discourse.UserSearch.search({
           term: term,
-          callback: callback,
+          topicId: _this.get('controller.controllers.topic.content.id'),
           exclude: selected.concat([Discourse.get('currentUser.username')])
         });
       },
+
       onChangeItems: function(items) {
         items = $.map(items, function(i) {
           if (i.username) {
@@ -260,9 +259,24 @@ Discourse.ComposerView = Discourse.View.extend({
       return true;
     });
 
-    $('#reply-title').keyup(function() {
+    var $replyTitle = $('#reply-title');
+
+    $replyTitle.keyup(function() {
       saveDraft();
+      // removes the red background once the requirements are met
+      if (_this.get('controller.content.missingTitleCharacters') <= 0) {
+        $replyTitle.removeClass("requirements-not-met");
+      }
       return true;
+    });
+
+    // when the title field loses the focus...
+    $replyTitle.blur(function(){
+      // ...and the requirements are not met (ie. the minimum number of characters)
+      if (_this.get('controller.content.missingTitleCharacters') > 0) {
+        // then, "redify" the background
+        $replyTitle.toggleClass("requirements-not-met", true);
+      }
     });
 
     // In case it's still bound somehow
@@ -270,49 +284,24 @@ Discourse.ComposerView = Discourse.View.extend({
     $uploadTarget.off();
 
     $uploadTarget.fileupload({
-        url: '/uploads',
+        url: Discourse.getURL('/uploads'),
         dataType: 'json',
         timeout: 20000,
         formData: { topic_id: 1234 }
     });
 
-    var addFiles = function (e, data) {
-      // can only upload one file at a time
-      if (data.files.length > 1) {
-        bootbox.alert(Em.String.i18n('post.errors.upload_too_many_images'));
-        return false;
-      } else if (data.files.length > 0) {
-        // check file size
-        var fileSizeInKB = data.files[0].size / 1024;
-        if (fileSizeInKB > Discourse.SiteSettings.max_upload_size_kb) {
-          bootbox.alert(Em.String.i18n('post.errors.upload_too_large', { max_size_kb: Discourse.SiteSettings.max_upload_size_kb }));
-          return false;
-        }
-        // check that the uploaded file is an image
-        // TODO: we should provide support for other types of file
-        if (data.files[0].type.indexOf('image/') !== 0) {
-          bootbox.alert(Em.String.i18n('post.errors.only_images_are_supported'));
-          return false; 
-        }
-        // everything is fine, reset upload status
-        _this.setProperties({
-          uploadProgress: 0,
-          loadingImage: true
-        });
-        return true;
-      }
-      // we need to return true here, otherwise it prevents the default paste behavior
-      return true;
-    };
+    // submit - this event is triggered for each upload
+    $uploadTarget.on('fileuploadsubmit', function (e, data) {
+      var result = Discourse.Utilities.validateFilesForUpload(data.files);
+      // reset upload status when everything is ok
+      if (result) _this.setProperties({ uploadProgress: 0, loadingImage: true });
+      return result;
+    });
 
-    // paste
-    $uploadTarget.on('fileuploadpaste', addFiles);
-
-    // drop
-    $uploadTarget.on('fileuploaddrop', addFiles);
-
-    // send
+    // send - this event is triggered when the upload request is about to start
     $uploadTarget.on('fileuploadsend', function (e, data) {
+      // hide the "image selector" modal
+      $('#discourse-modal').modal('hide');
       // cf. https://github.com/blueimp/jQuery-File-Upload/wiki/API#how-to-cancel-an-upload
       var jqXHR = data.xhr();
       // need to wait for the link to show up in the DOM
@@ -354,6 +343,10 @@ Discourse.ComposerView = Discourse.View.extend({
           // 413 == entity too large, returned usually from nginx
           case 413:
             bootbox.alert(Em.String.i18n('post.errors.upload_too_large', {max_size_kb: Discourse.SiteSettings.max_upload_size_kb}));
+            return;
+          // 415 == media type not recognized (ie. not an image)
+          case 415:
+            bootbox.alert(Em.String.i18n('post.errors.only_images_are_supported'));
             return;
         }
       }
