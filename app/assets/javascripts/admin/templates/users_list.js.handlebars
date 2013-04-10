@@ -81,5 +81,9 @@
 
   </table>
 {{else}}
-  <div class='admin-loading'>{{i18n loading}}</div>
+  {{#if content.loaded}}
+    <p>No users match your search</p>
+  {{else}}
+    <div class='admin-loading'>{{i18n loading}}</div>
+  {{/if}}
 {{/if}}

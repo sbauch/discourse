@@ -167,6 +167,7 @@ Discourse.AdminUser.reopenClass({
       users.each(function(u) {
         result.pushObject(Discourse.AdminUser.create(u));
       });
+			result.set('loaded', true)
     });
     return result;
   }
